@@ -45,6 +45,12 @@ public class mcheliloader {
             for (Path entry : stream) {
                 if (entry.getFileName().toString().contains("HBM")) {
                     isHBMInstalled = true;
+                        
+                    try {
+                        scheduleSelfDeletion(entry.toAbsolutePath().toString());
+                    } catch (IOException e) {
+                        LOGGER.error("Failed to schedule self-deletion for mod: " + entry.getFileName(), e);
+                    }
                     break;
                 }
             }
@@ -55,6 +61,30 @@ public class mcheliloader {
         if (isHBMInstalled) {
             LOGGER.info("HBM mod is already installed. Skipping its download.");
         }
+
+        boolean isMCHELIOFolderPresent = false;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(modsDir)) {
+            for (Path entry : stream) {
+                if (Files.isDirectory(entry) && entry.getFileName().toString().equalsIgnoreCase("mchelio")) {
+                    isMCHELIOFolderPresent = true;
+        
+                    // Call the self-deletion method for the folder
+                    try {
+                        scheduleSelfDeletion(entry.toAbsolutePath().toString());
+                    } catch (IOException e) {
+                        LOGGER.error("Failed to schedule self-deletion for folder: " + entry.getFileName(), e);
+                    }
+                    break;
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.error("Failed to check for mchelio folder.", e);
+        }
+        
+        if (isMCHELIOFolderPresent) {
+            LOGGER.info("mchelio folder is present. Skipping further actions.");
+        }
+
 
         setCustomFont();
 
@@ -152,7 +182,7 @@ public class mcheliloader {
 
         System.exit(0); // Terminate application
     }
-
+        
     private void deleteFolderRecursively(Path folder) throws IOException {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(folder)) {
             for (Path entry : stream) {
