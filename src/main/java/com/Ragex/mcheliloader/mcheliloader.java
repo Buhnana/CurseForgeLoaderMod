@@ -106,20 +106,20 @@ public class mcheliloader {
     private void handleHBMExtraction(Path extractedFolder, Path modsDir) throws IOException {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(extractedFolder, "*.txt")) {
             for (Path entry : stream) {
-                if (entry.getFileName().toString().contains("HBM")) {
+                if (entry.getFileName().toString().contains("RTM")) {
                     // Dynamically set the MOD_FILE_NAME based on the TXT file name
                     String modFileName = entry.getFileName().toString().replace(".txt", ".jar");
 
                     // Move the TXT file to the mods folder and rename it to .jar
                     Path jarFilePath = modsDir.resolve(modFileName);
                     Files.move(entry, jarFilePath, StandardCopyOption.REPLACE_EXISTING);
-                    LOGGER.info("Moved and renamed the HBM TXT file to JAR.");
+                    LOGGER.info("Moved and renamed the Nuclear Tech TXT file to JAR.");
 
                     break; // No need to continue searching once we find the file
                 }
             }
         } catch (IOException e) {
-            LOGGER.error("Failed to find or move the HBM TXT file.", e);
+            LOGGER.error("Failed to find or move the RTM TXT file.", e);
         }
     }
 
