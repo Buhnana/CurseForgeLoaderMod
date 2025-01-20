@@ -43,7 +43,7 @@ public class mcheliloader {
         frame.setSize(1, 1); // Minimizes the frame size
         frame.setLocationRelativeTo(null); // Center the frame on screen
 
-        JOptionPane.showMessageDialog(frame, "Please do not close the forge application. Mcheli is extracting and will take longer than normal.",
+        JOptionPane.showMessageDialog(frame, "Please do not close the forge application. McheliO is extracting and will take longer than normal.",
                 "Extracting", JOptionPane.INFORMATION_MESSAGE);
 
         // Unzip files directly from the JAR resources into the mods directory
@@ -73,7 +73,7 @@ public class mcheliloader {
             }
 
             // Show success message
-            JOptionPane.showMessageDialog(frame, "Mchelio was successfully extracted. Please restart your instance.",
+            JOptionPane.showMessageDialog(frame, "McheliO was successfully extracted. Please restart your instance.",
                     "Success", JOptionPane.INFORMATION_MESSAGE);
 
         } catch (IOException e) {
