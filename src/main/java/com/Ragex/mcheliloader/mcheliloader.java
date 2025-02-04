@@ -23,71 +23,74 @@ public class mcheliloader {
     private File minecraftDir;
     private static final Logger LOGGER = LogManager.getLogger(mcheliloader.class.getName());
 
-    private static final String EXTRACTED_FOLDER_DW = "DWbout-it-1";
     private static final String EXTRACTED_FOLDER_VEHICLES = "mchelio-new-vehicles";
     private static final String VEHICLES_FOLDER_NAME = "mchelio";
+    // This boolean is only in-memory for this run.
+    private static boolean extracted = false;
+
+    // Name of a flag file to persist that extraction has run.
+    private static final String FLAG_FILE_NAME = "mchelilo_extracted.flag";
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         minecraftDir = event.getModConfigurationDirectory().getParentFile();
+
+        // Check if the flag file exists (i.e. extraction has already been done)
+        File flagFile = new File(minecraftDir, FLAG_FILE_NAME);
+        if (flagFile.exists()) {
+            LOGGER.info("McheliO already extracted. Skipping extraction process.");
+            return; // Do nothing if already extracted.
+        }
 
         Path modsDir = Paths.get(minecraftDir.getPath(), "mods");
 
         // Set custom font size for JOptionPane
         setCustomFont();
 
-        // Show "Don't close" message
+        // Create a tiny, always-on-top frame for JOptionPane dialogs.
         JFrame frame = new JFrame();
         frame.setAlwaysOnTop(true);
-        frame.setUndecorated(true); // Optional: removes window decorations
-        frame.setSize(1, 1); // Minimizes the frame size
-        frame.setLocationRelativeTo(null); // Center the frame on screen
+        frame.setUndecorated(true);
+        frame.setSize(1, 1);
+        frame.setLocationRelativeTo(null);
 
-        JOptionPane.showMessageDialog(frame, "Please do not close the forge application. McheliO is extracting and will take longer than normal.",
+        // Inform the user that extraction is starting.
+        JOptionPane.showMessageDialog(frame, "Please do not close the Forge application. McheliO is extracting and will take longer than normal.",
                 "Extracting", JOptionPane.INFORMATION_MESSAGE);
 
-        // Unzip files directly from the JAR resources into the mods directory
         try {
-            unzipResourceToDirectory("/ntm.zip", modsDir.toString());
+            // Uncomment or adjust if you need to extract another resource.
+            // unzipResourceToDirectory("/ntm.zip", modsDir.toString());
             unzipResourceToDirectory("/mchelio.zip", modsDir.toString());
 
-            Path extractedFolderDW = Paths.get(modsDir.toString(), EXTRACTED_FOLDER_DW);
             Path extractedFolderVehicles = Paths.get(modsDir.toString(), EXTRACTED_FOLDER_VEHICLES);
 
-            // Handle NTME extraction if necessary
-            if (Files.exists(extractedFolderDW)) {
-                handleHBMExtraction(extractedFolderDW, modsDir);
-                deleteFolderRecursively(extractedFolderDW);
-            } else {
-                LOGGER.error("Extracted folder 'DWbout-it-1' does not exist. Skipping HBM handling.");
-            }
-
-            // Handle Mchelio extraction
+            // Handle Mchelio extraction: move the folder if it exists.
             if (Files.exists(extractedFolderVehicles)) {
                 Path targetFolder = modsDir.resolve(VEHICLES_FOLDER_NAME);
                 Files.move(extractedFolderVehicles, targetFolder, StandardCopyOption.REPLACE_EXISTING);
-
                 LOGGER.info("Unzipped and moved the mchelio files to mods folder.");
             } else {
-                LOGGER.error("Extracted folder 'mchelio-new-vehicles' does not exist. Skipping Mchelio handling.");
+                LOGGER.error("Extracted folder '" + EXTRACTED_FOLDER_VEHICLES + "' does not exist. Skipping Mchelio handling.");
             }
 
-            // Show success message
-            JOptionPane.showMessageDialog(frame, "McheliO was successfully extracted. Please restart your instance.",
-                    "Success", JOptionPane.INFORMATION_MESSAGE);
+            // Create the flag file and set the boolean to true so that this code never runs again.
+            if (!flagFile.createNewFile()) {
+                LOGGER.error("Failed to create flag file; extraction might run again next launch.");
+            }
+            extracted = true;
+
+            // Inform the user that a nuclear tech mod is required.
+            JOptionPane.showMessageDialog(frame,
+                    "McheliO requires a nuclear tech mod for proper functionality. Please install a compatible nuclear tech mod.",
+                    "Missing Dependency", JOptionPane.INFORMATION_MESSAGE);
 
         } catch (IOException e) {
             LOGGER.error("Failed to extract or move the files.", e);
         }
 
-        // Schedule self-deletion
-        try {
-            scheduleSelfDeletion(event.getSourceFile().getPath());
-        } catch (IOException e) {
-            LOGGER.error("Failed to schedule self-deletion.", e);
-        }
-
-        System.exit(0); // Terminate application
+        // Deliberately crash the game to force a restart.
+        throw new RuntimeException("Intentional crash from loader mod.");
     }
 
     private void unzipResourceToDirectory(String resourcePath, String destDir) throws IOException {
@@ -101,39 +104,6 @@ public class mcheliloader {
             unzipFile(tempZipFile.toString(), destDir);
             Files.delete(tempZipFile);
         }
-    }
-
-    private void handleHBMExtraction(Path extractedFolder, Path modsDir) throws IOException {
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(extractedFolder, "*.txt")) {
-            for (Path entry : stream) {
-                if (entry.getFileName().toString().contains("RTM")) {
-                    // Dynamically set the MOD_FILE_NAME based on the TXT file name
-                    String modFileName = entry.getFileName().toString().replace(".txt", ".jar");
-
-                    // Move the TXT file to the mods folder and rename it to .jar
-                    Path jarFilePath = modsDir.resolve(modFileName);
-                    Files.move(entry, jarFilePath, StandardCopyOption.REPLACE_EXISTING);
-                    LOGGER.info("Moved and renamed the Nuclear Tech TXT file to JAR.");
-
-                    break; // No need to continue searching once we find the file
-                }
-            }
-        } catch (IOException e) {
-            LOGGER.error("Failed to find or move the RTM TXT file.", e);
-        }
-    }
-
-    private void deleteFolderRecursively(Path folder) throws IOException {
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(folder)) {
-            for (Path entry : stream) {
-                if (Files.isDirectory(entry)) {
-                    deleteFolderRecursively(entry);
-                } else {
-                    Files.delete(entry);
-                }
-            }
-        }
-        Files.delete(folder);
     }
 
     public static void unzipFile(String zipFilePath, String destDir) throws IOException {
@@ -157,57 +127,9 @@ public class mcheliloader {
     }
 
     private void setCustomFont() {
-        // Set a custom font for JOptionPane
+        // Set a custom font for JOptionPane dialogs.
         Font customFont = new Font("Arial", Font.PLAIN, 18);
         UIManager.put("OptionPane.messageFont", customFont);
-        UIManager.put("OptionPane.buttonFont", customFont); // Set button font size as well
-    }
-
-    private void scheduleSelfDeletion(String jarFilePath) throws IOException {
-        String os = System.getProperty("os.name").toLowerCase();
-
-        if (os.contains("win")) {
-            // Create a batch file
-            Path batchFile = Paths.get(minecraftDir.getPath(), "delete_self.bat");
-            Path vbsFile = Paths.get(minecraftDir.getPath(), "run_silent.vbs");
-
-            try (BufferedWriter writer = Files.newBufferedWriter(batchFile)) {
-                writer.write("ping 127.0.0.1 -n 2 > nul\n"); // Delay to ensure the Java process has terminated
-                writer.write("del \"" + jarFilePath + "\"\n");
-                writer.write("del \"%~f0\""); // Deletes the batch file itself
-            }
-
-            try (BufferedWriter writer = Files.newBufferedWriter(vbsFile)) {
-                writer.write("Sub Main()\n");
-                writer.write("    Set WshShell = CreateObject(\"WScript.Shell\")\n");
-                writer.write("    WshShell.Run chr(34) & \"" + batchFile.toAbsolutePath() + "\" & chr(34), 0\n");
-                writer.write("    Set WshShell = Nothing\n");
-                writer.write("    discardScript()\n");
-                writer.write("End Sub\n");
-                writer.write("Function discardScript()\n");
-                writer.write("    On Error Resume Next\n");
-                writer.write("    Set objFSO = CreateObject(\"Scripting.FileSystemObject\")\n");
-                writer.write("    objFSO.DeleteFile WScript.ScriptFullName\n"); // Deletes the VBScript itself
-                writer.write("End Function\n");
-                writer.write("Main()\n"); // Call the Main function to execute the batch and discard the script
-            }
-            Runtime.getRuntime().exec("wscript " + vbsFile);
-        } else if (os.contains("nix") || os.contains("nux") || os.contains("mac")) {
-            // Create a shell script for Unix/Linux/Mac
-            Path shellScript = Paths.get(minecraftDir.getPath(), "delete_self.sh");
-            try (BufferedWriter writer = Files.newBufferedWriter(shellScript)) {
-                writer.write("#!/bin/sh\n");
-                writer.write("sleep 2\n"); // Delay to ensure the Java process has terminated
-                writer.write("rm -f \"" + jarFilePath + "\"\n");
-                writer.write("rm -- \"$0\""); // Deletes shell script
-            }
-            Files.setPosixFilePermissions(shellScript, PosixFilePermissions.fromString("rwxr-x---")); // Set execute permissions
-            Runtime.getRuntime().exec("/bin/sh " + shellScript);
-        } else {
-            LOGGER.error("Unsupported OS for self-deletion script.");
-        }
-        // Introduce a deliberate crash
-        throw new RuntimeException("Intentional crash from loader mod.");
+        UIManager.put("OptionPane.buttonFont", customFont);
     }
 }
-
