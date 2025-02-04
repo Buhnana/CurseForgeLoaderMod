@@ -8,11 +8,12 @@ import org.apache.logging.log4j.Logger;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
+import java.net.URLDecoder;
 import java.nio.file.*;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Enumeration;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 @Mod(
         modid = "mcheliloader",
@@ -23,15 +24,29 @@ public class mcheliloader {
     private File minecraftDir;
     private static final Logger LOGGER = LogManager.getLogger(mcheliloader.class.getName());
 
+    // Names of the resource folders in the jar:
+    private static final String RESOURCE_FOLDER_DW = "/DWbout-it-1";
+    private static final String RESOURCE_FOLDER_VEHICLES = "/mchelio-new-vehicles";
+
+    // These are the names after copying into the mods folder:
     private static final String EXTRACTED_FOLDER_DW = "DWbout-it-1";
     private static final String EXTRACTED_FOLDER_VEHICLES = "mchelio-new-vehicles";
     private static final String VEHICLES_FOLDER_NAME = "mchelio";
 
+    // Flag file to mark that installation has been performed
+    private static final String INSTALL_FLAG_FILENAME = "mchelio_installed.flag";
+
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         minecraftDir = event.getModConfigurationDirectory().getParentFile();
-
         Path modsDir = Paths.get(minecraftDir.getPath(), "mods");
+        Path installFlag = modsDir.resolve(INSTALL_FLAG_FILENAME);
+
+        // If the flag exists, skip the extraction
+        if (Files.exists(installFlag)) {
+            LOGGER.info("Installation already completed. Skipping extraction.");
+            return;
+        }
 
         // Set custom font size for JOptionPane
         setCustomFont();
@@ -39,22 +54,24 @@ public class mcheliloader {
         // Show "Don't close" message
         JFrame frame = new JFrame();
         frame.setAlwaysOnTop(true);
-        frame.setUndecorated(true); // Optional: removes window decorations
-        frame.setSize(1, 1); // Minimizes the frame size
-        frame.setLocationRelativeTo(null); // Center the frame on screen
+        frame.setUndecorated(true);
+        frame.setSize(1, 1);
+        frame.setLocationRelativeTo(null);
 
-        JOptionPane.showMessageDialog(frame, "Please do not close the forge application. McheliO is extracting and will take longer than normal.",
-                "Extracting", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(frame,
+                "Please do not close the forge application. McheliO is extracting and will take longer than normal.",
+                "Extracting",
+                JOptionPane.INFORMATION_MESSAGE);
 
-        // Unzip files directly from the JAR resources into the mods directory
         try {
-            unzipResourceToDirectory("/ntm.zip", modsDir.toString());
-            unzipResourceToDirectory("/mchelio.zip", modsDir.toString());
+            // Instead of unzipping zip files, copy the resource folders from within this jar
+            copyResourceFolder(RESOURCE_FOLDER_DW, modsDir);
+            copyResourceFolder(RESOURCE_FOLDER_VEHICLES, modsDir);
 
-            Path extractedFolderDW = Paths.get(modsDir.toString(), EXTRACTED_FOLDER_DW);
-            Path extractedFolderVehicles = Paths.get(modsDir.toString(), EXTRACTED_FOLDER_VEHICLES);
+            Path extractedFolderDW = modsDir.resolve(EXTRACTED_FOLDER_DW);
+            Path extractedFolderVehicles = modsDir.resolve(EXTRACTED_FOLDER_VEHICLES);
 
-            // Handle NTME extraction if necessary
+            // Handle the HBM extraction from the DW folder if it exists
             if (Files.exists(extractedFolderDW)) {
                 handleHBMExtraction(extractedFolderDW, modsDir);
                 deleteFolderRecursively(extractedFolderDW);
@@ -62,44 +79,67 @@ public class mcheliloader {
                 LOGGER.error("Extracted folder 'DWbout-it-1' does not exist. Skipping HBM handling.");
             }
 
-            // Handle Mchelio extraction
+            // Handle the vehicles extraction: move the vehicles folder to its final name
             if (Files.exists(extractedFolderVehicles)) {
                 Path targetFolder = modsDir.resolve(VEHICLES_FOLDER_NAME);
                 Files.move(extractedFolderVehicles, targetFolder, StandardCopyOption.REPLACE_EXISTING);
-
-                LOGGER.info("Unzipped and moved the mchelio files to mods folder.");
+                LOGGER.info("Copied and moved the mchelio vehicles files to the mods folder.");
             } else {
                 LOGGER.error("Extracted folder 'mchelio-new-vehicles' does not exist. Skipping Mchelio handling.");
             }
 
-            // Show success message
-            JOptionPane.showMessageDialog(frame, "McheliO was successfully extracted. Please restart your instance.",
-                    "Success", JOptionPane.INFORMATION_MESSAGE);
+            // Create the flag file so this extraction does not run again
+            markInstalled(installFlag);
 
+            // Show success message
+            JOptionPane.showMessageDialog(frame,
+                    "McheliO was successfully extracted. Please restart your instance.",
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException e) {
             LOGGER.error("Failed to extract or move the files.", e);
         }
 
-        // Schedule self-deletion
-        try {
-            scheduleSelfDeletion(event.getSourceFile().getPath());
-        } catch (IOException e) {
-            LOGGER.error("Failed to schedule self-deletion.", e);
-        }
-
-        System.exit(0); // Terminate application
+        // Terminate the application (or let it continue if that suits your design)
+        System.exit(0);
     }
 
-    private void unzipResourceToDirectory(String resourcePath, String destDir) throws IOException {
-        try (InputStream zipStream = getClass().getResourceAsStream(resourcePath)) {
-            if (zipStream == null) {
-                throw new FileNotFoundException("Resource not found: " + resourcePath);
-            }
+    /**
+     * Copies a folder resource (and its sub-resources) from inside the jar to a destination directory.
+     *
+     * @param resourceFolder The resource folder path inside the jar (should start with a '/')
+     * @param destDir        The destination directory as a Path
+     * @throws IOException if an IO error occurs.
+     */
+    private void copyResourceFolder(String resourceFolder, Path destDir) throws IOException {
+        // Determine the path to the current jar file.
+        String jarPath = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
+        jarPath = URLDecoder.decode(jarPath, "UTF-8");
 
-            Path tempZipFile = Files.createTempFile("tempZip", ".zip");
-            Files.copy(zipStream, tempZipFile, StandardCopyOption.REPLACE_EXISTING);
-            unzipFile(tempZipFile.toString(), destDir);
-            Files.delete(tempZipFile);
+        try (JarFile jar = new JarFile(jarPath)) {
+            // Remove the leading "/" from resourceFolder for matching JarEntry names
+            String resourceFolderPath = resourceFolder.startsWith("/") ? resourceFolder.substring(1) : resourceFolder;
+            Enumeration<JarEntry> entries = jar.entries();
+
+            while (entries.hasMoreElements()) {
+                JarEntry entry = entries.nextElement();
+                String entryName = entry.getName();
+                // Only process entries that start with the desired folder name
+                if (entryName.startsWith(resourceFolderPath)) {
+                    // Get the relative path (e.g. if resourceFolderPath is "DWbout-it-1", then remove that prefix)
+                    String relativePath = entryName.substring(resourceFolderPath.length());
+                    // Construct the output path
+                    Path outPath = destDir.resolve(resourceFolderPath + relativePath);
+                    if (entry.isDirectory()) {
+                        Files.createDirectories(outPath);
+                    } else {
+                        Files.createDirectories(outPath.getParent());
+                        try (InputStream in = jar.getInputStream(entry)) {
+                            Files.copy(in, outPath, StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -114,8 +154,7 @@ public class mcheliloader {
                     Path jarFilePath = modsDir.resolve(modFileName);
                     Files.move(entry, jarFilePath, StandardCopyOption.REPLACE_EXISTING);
                     LOGGER.info("Moved and renamed the Nuclear Tech TXT file to JAR.");
-
-                    break; // No need to continue searching once we find the file
+                    break;
                 }
             }
         } catch (IOException e) {
@@ -124,6 +163,7 @@ public class mcheliloader {
     }
 
     private void deleteFolderRecursively(Path folder) throws IOException {
+        if (!Files.exists(folder)) return;
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(folder)) {
             for (Path entry : stream) {
                 if (Files.isDirectory(entry)) {
@@ -136,78 +176,21 @@ public class mcheliloader {
         Files.delete(folder);
     }
 
-    public static void unzipFile(String zipFilePath, String destDir) throws IOException {
-        try (ZipFile zipFile = new ZipFile(zipFilePath)) {
-            Enumeration<? extends ZipEntry> entries = zipFile.entries();
-
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                Path filePath = Paths.get(destDir, entry.getName());
-
-                if (entry.isDirectory()) {
-                    Files.createDirectories(filePath);
-                } else {
-                    Files.createDirectories(filePath.getParent());
-                    try (InputStream in = zipFile.getInputStream(entry)) {
-                        Files.copy(in, filePath, StandardCopyOption.REPLACE_EXISTING);
-                    }
-                }
-            }
-        }
-    }
-
     private void setCustomFont() {
-        // Set a custom font for JOptionPane
+        // Set a custom font for JOptionPane dialogs
         Font customFont = new Font("Arial", Font.PLAIN, 18);
         UIManager.put("OptionPane.messageFont", customFont);
-        UIManager.put("OptionPane.buttonFont", customFont); // Set button font size as well
+        UIManager.put("OptionPane.buttonFont", customFont);
     }
 
-    private void scheduleSelfDeletion(String jarFilePath) throws IOException {
-        String os = System.getProperty("os.name").toLowerCase();
-
-        if (os.contains("win")) {
-            // Create a batch file
-            Path batchFile = Paths.get(minecraftDir.getPath(), "delete_self.bat");
-            Path vbsFile = Paths.get(minecraftDir.getPath(), "run_silent.vbs");
-
-            try (BufferedWriter writer = Files.newBufferedWriter(batchFile)) {
-                writer.write("ping 127.0.0.1 -n 2 > nul\n"); // Delay to ensure the Java process has terminated
-                writer.write("del \"" + jarFilePath + "\"\n");
-                writer.write("del \"%~f0\""); // Deletes the batch file itself
-            }
-
-            try (BufferedWriter writer = Files.newBufferedWriter(vbsFile)) {
-                writer.write("Sub Main()\n");
-                writer.write("    Set WshShell = CreateObject(\"WScript.Shell\")\n");
-                writer.write("    WshShell.Run chr(34) & \"" + batchFile.toAbsolutePath() + "\" & chr(34), 0\n");
-                writer.write("    Set WshShell = Nothing\n");
-                writer.write("    discardScript()\n");
-                writer.write("End Sub\n");
-                writer.write("Function discardScript()\n");
-                writer.write("    On Error Resume Next\n");
-                writer.write("    Set objFSO = CreateObject(\"Scripting.FileSystemObject\")\n");
-                writer.write("    objFSO.DeleteFile WScript.ScriptFullName\n"); // Deletes the VBScript itself
-                writer.write("End Function\n");
-                writer.write("Main()\n"); // Call the Main function to execute the batch and discard the script
-            }
-            Runtime.getRuntime().exec("wscript " + vbsFile);
-        } else if (os.contains("nix") || os.contains("nux") || os.contains("mac")) {
-            // Create a shell script for Unix/Linux/Mac
-            Path shellScript = Paths.get(minecraftDir.getPath(), "delete_self.sh");
-            try (BufferedWriter writer = Files.newBufferedWriter(shellScript)) {
-                writer.write("#!/bin/sh\n");
-                writer.write("sleep 2\n"); // Delay to ensure the Java process has terminated
-                writer.write("rm -f \"" + jarFilePath + "\"\n");
-                writer.write("rm -- \"$0\""); // Deletes shell script
-            }
-            Files.setPosixFilePermissions(shellScript, PosixFilePermissions.fromString("rwxr-x---")); // Set execute permissions
-            Runtime.getRuntime().exec("/bin/sh " + shellScript);
-        } else {
-            LOGGER.error("Unsupported OS for self-deletion script.");
-        }
-        // Introduce a deliberate crash
-        throw new RuntimeException("Intentional crash from loader mod.");
+    /**
+     * Marks the installation as complete by creating a flag file.
+     *
+     * @param flagPath The path to the flag file.
+     * @throws IOException if an IO error occurs.
+     */
+    private void markInstalled(Path flagPath) throws IOException {
+        Files.createFile(flagPath);
+        LOGGER.info("Installation flag created at: " + flagPath);
     }
 }
-
