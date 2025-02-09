@@ -37,7 +37,7 @@ public class mcheliloader {
 
         // Check if the flag file exists (i.e. extraction has already been done)
         File flagFile = new File(minecraftDir, FLAG_FILE_NAME);
-        if (flagFile.exists()) {
+        if (flagFile.exists() || Files.exists(Paths.get(minecraftDir.getPath(), "mods", VEHICLES_FOLDER_NAME))) {
             LOGGER.info("McheliO already extracted. Skipping extraction process.");
             return; // Do nothing if already extracted.
         }
@@ -82,8 +82,8 @@ public class mcheliloader {
 
             // Inform the user that a nuclear tech mod is required.
             JOptionPane.showMessageDialog(frame,
-                    "McheliO requires a nuclear tech mod for proper functionality. Please install a compatible nuclear tech mod.",
-                    "Missing Dependency", JOptionPane.INFORMATION_MESSAGE);
+                    "McheliO requires a nuclear tech mod for proper functionality. Please install a compatible nuclear tech mod. If you already have the mod, RELAUNCH your game.",
+                    "McheliO has been installed. Restart your game.", JOptionPane.INFORMATION_MESSAGE);
 
         } catch (IOException e) {
             LOGGER.error("Failed to extract or move the files.", e);
