@@ -10,6 +10,7 @@ import java.awt.*;
 import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -37,9 +38,22 @@ public class mcheliloader {
 
         // Check if the flag file exists (i.e. extraction has already been done)
         File flagFile = new File(minecraftDir, FLAG_FILE_NAME);
-        if (flagFile.exists() || Files.exists(Paths.get(minecraftDir.getPath(), "mods", VEHICLES_FOLDER_NAME))) {
+        if (flagFile.exists() && Files.exists(Paths.get(minecraftDir.getPath(), "mods", VEHICLES_FOLDER_NAME))) { //old logic, || Files.exists(Paths.get(minecraftDir.getPath(), "mods", VEHICLES_FOLDER_NAME))
             LOGGER.info("McheliO already extracted. Skipping extraction process.");
             return; // Do nothing if already extracted.
+        }
+
+        Path vehiclesFolder = Paths.get(minecraftDir.getPath(), "mods", VEHICLES_FOLDER_NAME);
+        if (Files.exists(vehiclesFolder)) {
+            try {
+                Files.walk(vehiclesFolder)
+                        .sorted(Comparator.reverseOrder())
+                        .map(Path::toFile)
+                        .forEach(File::delete);
+                LOGGER.info("Deleted existing McheliO directory to prevent extraction issues.");
+            } catch (IOException e) {
+                LOGGER.error("Failed to delete existing McheliO directory.", e);
+            }
         }
 
         Path modsDir = Paths.get(minecraftDir.getPath(), "mods");
