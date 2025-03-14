@@ -43,6 +43,11 @@ public class mcheliloader {
             return; // Do nothing if already extracted.
         }
 
+        if (flagFile.exists() && Files.exists(Paths.get(minecraftDir.getPath(), "mods", EXTRACTED_FOLDER_VEHICLES))) { //old logic, || Files.exists(Paths.get(minecraftDir.getPath(), "mods", VEHICLES_FOLDER_NAME))
+            LOGGER.info("McheliO already extracted. Albeit weirdly, skipping extraction process.");
+            return; // Do nothing if already extracted.
+        }
+
         Path vehiclesFolder = Paths.get(minecraftDir.getPath(), "mods", VEHICLES_FOLDER_NAME);
         if (Files.exists(vehiclesFolder)) {
             try {
