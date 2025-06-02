@@ -99,10 +99,11 @@ public class mcheliloader {
             }
             extracted = true;
 
-            // Inform the user that a nuclear tech mod is required.
+            // Notify user about nuclear tech mod requirement
+            // Notify user about nuclear tech and XenoFactions dependencies
             JOptionPane.showMessageDialog(frame,
-                    "McheliO requires a nuclear tech mod for proper functionality. Please install a compatible nuclear tech mod. If you already have the mod, RELAUNCH your game.",
-                    "McheliO has been installed. Restart your game.", JOptionPane.INFORMATION_MESSAGE);
+                    "McheliO requires a nuclear tech mod for nukes.\nRecommended: RTM (full support).\nJamesH2 fork: not recommended.\nOriginal HBM: experimental.\nSome recipes may also require XenoFactions.\nIf already installed, restart your game.",
+                    "McheliO Installed - Restart Required", JOptionPane.INFORMATION_MESSAGE);
 
         } catch (IOException e) {
             LOGGER.error("Failed to extract or move the files.", e);
