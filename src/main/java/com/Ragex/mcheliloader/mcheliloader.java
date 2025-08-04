@@ -132,6 +132,17 @@ public class mcheliloader {
 
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
+
+                // 🔥 Log the exact entry being processed
+                try {
+                    String name = entry.getName();
+                    LOGGER.info("Processing zip entry: " + name);
+                } catch (Exception e) {
+                    // 🔥 Catch any name decode error
+                    LOGGER.error("Malformed zip entry name detected!", e);
+                    continue;
+                }
+
                 Path filePath = Paths.get(destDir, entry.getName());
 
                 if (entry.isDirectory()) {
