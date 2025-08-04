@@ -59,6 +59,15 @@ dependencies {
     // for more info...
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
+
+    //implementation 'org.osgi:org.osgi.service.prefs:1.1.0'
+
+}
+
+configurations.all {
+    resolutionStrategy {
+        force 'org.osgi:org.osgi.service.prefs:1.1.2'
+    }
 }
 
 processResources {
