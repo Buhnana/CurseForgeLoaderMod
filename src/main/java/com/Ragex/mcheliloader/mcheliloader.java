@@ -17,6 +17,8 @@ import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+//curseforge loader mod:
+
 @Mod(
         modid = "mcheliloader",
         name = "mcheliloader",
