@@ -20,8 +20,8 @@ import java.util.zip.ZipFile;
 //curseforge loader mod:
 
 @Mod(
-        modid = "mcheliloader",
-        name = "mcheliloader",
+        modid = "mchelioloader",
+        name = "mchelioloader",
         dependencies = "required-after:Forge@[10.13.2.1230,)"
 )
 public class mcheliloader {

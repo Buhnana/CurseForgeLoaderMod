@@ -1,15 +1,14 @@
 [
 {
   "modid": "mcheliloader",
-  "name": "MC Helicopter Overdrive loader",
+  "name": "MC Helicopter Overdrive Loader",
   "version": "1.0.2",
   "mcversion": "1.7.10",
   "description": "Fixes Mcheli's mod loading problems and installs HBM's Nuclear Tech to be easier for the end user",
-  "url": "http://forum.minecraftuser.jp/viewtopic.php?f=13&t=14837",
+  "url": "https://ragexprince.wordpress.com/",
   "credits": "RagexPrince683",
   "authorList": [ "RagexPrince683" ],
   "dependencies": [
-     "hbm"
   ]
 }
 ]
